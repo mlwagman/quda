@@ -1664,6 +1664,22 @@ extern "C" {
 
   /**
    * LEGACY
+   * Performs boosted Wuppertal smearing on a given spinor using the gauge field
+   * gaugeSmeared, if it exist, or gaugePrecise if no smeared field is present.
+   * @param h_out  Result spinor field
+   * @param h_in   Input spinor field
+   * @param param  Contains all metadata regarding host and device
+   *               storage and operator which will be applied to the spinor
+   * @param n_steps Number of steps to apply.
+   * @param alpha  Alpha coefficient for Wuppertal smearing.
+   * @param smear_mtm_x  Boost vector x-component for momentum smearing.
+   * @param smear_mtm_y  Boost vector x-component for momentum smearing.
+   * @param smear_mtm_z  Boost vector x-component for momentum smearing.
+   */
+  void performBoostedWuppertalnStep(void *h_out, void *h_in, QudaInvertParam *param, unsigned int n_steps, double alpha, double smear_mtm_x, double smear_mtm_y, double smear_mtm_z);
+
+  /**
+   * LEGACY
    * Performs gaussian smearing on a given spinor using the gauge field
    * gaugeSmeared, if it exist, or gaugePrecise if no smeared field is present.
    * @param h_in   Input spinor field

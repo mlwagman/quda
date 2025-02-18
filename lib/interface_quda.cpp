@@ -178,6 +178,9 @@ static TimeProfile profilePlaq("plaqQuda");
 //!< Profiler for wuppertalQuda
 static TimeProfile profileWuppertal("wuppertalQuda");
 
+//!< Profiler for wuppertalQuda
+static TimeProfile profileBoostedWuppertal("boostedWuppertalQuda");
+
 //!< Profiler for gaussianSmearQuda
 static TimeProfile profileGaussianSmear("gaussianSmearQuda");
 
@@ -4995,6 +4998,71 @@ void performWuppertalnStep(void *h_out, void *h_in, QudaInvertParam *inv_param, 
   for (unsigned int i = 0; i < n_steps; i++) {
     if (i) in = out;
     ApplyLaplace(out, in, *precise, 3, a, b, in, parity, comm_dim, profileWuppertal);
+    logQuda(QUDA_DEBUG_VERBOSE, "Step %d, vector norm %e\n", i, blas::norm2(out));
+  }
+
+  cpuParam.v = h_out;
+  cpuParam.location = inv_param->output_location;
+  ColorSpinorField out_h(cpuParam);
+  out_h = out;
+
+  logQuda(QUDA_DEBUG_VERBOSE, "Out CPU %e CUDA %e\n", blas::norm2(out_h), blas::norm2(out));
+
+  if (gaugeSmeared != nullptr) delete precise;
+
+  popVerbosity();
+}
+
+void performBoostedWuppertalnStep(void *h_out, void *h_in, QudaInvertParam *inv_param, unsigned int n_steps, double alpha, double smear_mtm_x, double smear_mtm_y, double smear_mtm_z)
+{
+  auto profile = pushProfile(profileBoostedWuppertal);
+  pushVerbosity(inv_param->verbosity);
+  if (gaugePrecise == nullptr) errorQuda("Gauge field must be loaded");
+
+  if (getVerbosity() >= QUDA_DEBUG_VERBOSE) printQudaInvertParam(inv_param);
+
+  GaugeField *precise = nullptr;
+
+  if (gaugeSmeared != nullptr) {
+    logQuda(QUDA_VERBOSE, "Boosted Wuppertal smearing done with gaugeSmeared\n");
+    GaugeFieldParam gParam(*gaugePrecise);
+    gParam.create = QUDA_NULL_FIELD_CREATE;
+    precise = new GaugeField(gParam);
+    copyExtendedGauge(*precise, *gaugeSmeared, QUDA_CUDA_FIELD_LOCATION);
+    precise->exchangeGhost();
+  } else {
+    logQuda(QUDA_VERBOSE, "Boosted Wuppertal smearing done with gaugePrecise\n");
+    precise = gaugePrecise;
+  }
+
+  ColorSpinorParam cpuParam(h_in, *inv_param, precise->X(), false, inv_param->input_location);
+  ColorSpinorField in_h(cpuParam);
+
+  ColorSpinorParam cudaParam(cpuParam, *inv_param, QUDA_CUDA_FIELD_LOCATION);
+  ColorSpinorField in(cudaParam);
+  in = in_h;
+
+  logQuda(QUDA_DEBUG_VERBOSE, "In CPU %e CUDA %e\n", blas::norm2(in_h), blas::norm2(in));
+
+  cudaParam.create = QUDA_NULL_FIELD_CREATE;
+  ColorSpinorField out(cudaParam);
+  int parity = 0;
+
+  // Computes out(x) = 1/(1+6*alpha)*(in(x) + alpha*\sum_mu (U_{-\mu}(x)in(x+mu) + U^\dagger_mu(x-mu)in(x-mu)))
+  double a = alpha / (1. + 6. * alpha);
+  double b = 1. / (1. + 6. * alpha);
+
+  int comm_dim[4] = {};
+  // only switch on comms needed for directions with a derivative
+  for (int i = 0; i < 4; i++) {
+    comm_dim[i] = comm_dim_partitioned(i);
+    if (i == 3) comm_dim[i] = 0;
+  }
+
+  for (unsigned int i = 0; i < n_steps; i++) {
+    if (i) in = out;
+    //ApplyLaplace(out, in, *precise, 3, a, b, in, parity, false, comm_dim, profileBoostedWuppertal);
+    ApplyBoostedLaplace(out, in, *precise, 3, a, b, smear_mtm_x, smear_mtm_y, smear_mtm_z, in, parity, comm_dim, profileBoostedWuppertal);
     logQuda(QUDA_DEBUG_VERBOSE, "Step %d, vector norm %e\n", i, blas::norm2(out));
   }
 

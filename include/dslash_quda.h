@@ -782,6 +782,35 @@ namespace quda
                     const int *comm_override, TimeProfile &profile);
 
   /**
+     @brief Driver for applying the Laplace stencil
+
+     out = - kappa * A * in
+
+     where A is the gauge laplace linear operator.
+
+     If x is defined, the operation is given by out = x - kappa * A in.
+     This operator can be applied to both single parity
+     (checker-boarded) fields, or to full fields.
+
+     @param[out] out The output result field set
+     @param[in] in The input field set
+     @param[in] U The gauge field used for the gauge Laplace
+     @param[in] dir Direction of the derivative 0,1,2,3 to omit (-1 is full 4D)
+     @param[in] a Scale factor applied to derivative
+     @param[in] b Scale factor applied to aux field
+   * @param[in] smear_mtm_x  Boost vector x-component for momentum smearing.
+   * @param[in] smear_mtm_y  Boost vector x-component for momentum smearing.
+   * @param[in] smear_mtm_z  Boost vector x-component for momentum smearing.
+     @param[in] x Vector field we accumulate onto to
+     @param[in] parity Destination parity
+     @param[in] comm_override Override for which dimensions are partitioned
+     @param[in] profile The TimeProfile used for profiling the dslash
+  */
+  void ApplyBoostedLaplace(cvector_ref<ColorSpinorField> &out, cvector_ref<const ColorSpinorField> &in, const GaugeField &U,
+                    int dir, double a, double b, double smear_mtm_x, double smear_mtm_y, double smear_mtm_z, cvector_ref<const ColorSpinorField> &x, int parity,
+                    const int *comm_override, TimeProfile &profile);
+
+  /**
      @brief Driver for applying the covariant derivative
 
      out = U * in
